@@ -1,36 +1,22 @@
-// Chrome background中不能使用console.log
-export function log(...args) {
-    return chrome.devtools.inspectedWindow.eval(`
-        console.log(...${JSON.stringify(args)});
-    `);
-}
+import background from './background.utils'
 
-// Chrome background中不能使用console.error
-export function logError(...args) {
-    return chrome.devtools.inspectedWindow.eval(`
-        console.error(...${JSON.stringify(args)});
-    `);
-}
+background.log("background start");
+background.initMessager()
 
-
-log("background start");
-
-// 发送消息
-function sendMessage(message) {
-    chrome.runtime.sendMessage({ message });
-}
-
-sendMessage("Message from background")
+setInterval(() => {
+    background.sendMessage({code: 'backgroundNotes', data: "I'm background"})
+}, 1000 * 30)
 
 // 接受消息
-chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-    log("Message from DevTools:", message);
+background.onMessage('devtoolsNotes', function(message, sender, sendResponse) {
+    background.log("devtools消息 --> ", message);
+})
 
-    if(typeof message === 'object' && message.code === 'webResponseHanlder') {
-        log("拦截请求:", message);
-        webResponseHanlder(message)
-    }
-});
+// 接受消息
+background.onMessage('webResponseHanlder', function(message, sender, sendResponse) {
+    background.log("拦截请求:", message);
+    webResponseHanlder(message)
+})
 
 function webResponseHanlder(message = {}) {
     const { responseHanlder, urls:_urls, successCallback, errorCallback } = message?.data || {}
@@ -47,7 +33,7 @@ function webResponseHanlder(message = {}) {
     let urls = [].concat(_urls) || ["<all_urls>"]
     chrome.webRequest.onBeforeRequest.addListener(
         function(details) {
-            log("chrome.webRequest.onBeforeRequest --> details:", details);
+            background.log("chrome.webRequest.onBeforeRequest --> details:", details);
             return new Promise((resolve, reject) => {
                 chrome.webRequest.getContent(details.requestId, function(resData) {
                     if(responseHanlder) {
@@ -58,18 +44,18 @@ function webResponseHanlder(message = {}) {
                                 redirectUrl: "data:text/plain;charset=utf-8," + encodeURIComponent(modifiedRes)
                             };
                             successCallback && successCallback(details)
-                            sendMessage({code: 'webResponseHanldeCompleted', data: details})
+                            background.sendMessage({code: 'webResponseHanldeCompleted', data: details})
                             resolve(newResponse);
                         })
                         .catch(error => {
-                            logError("异步处理出错:", error);
+                            background.logError("异步处理出错:", error);
                             errorCallback && errorCallback(error)
-                            sendMessage({code: 'webResponseHanldeError', data: error})
+                            background.sendMessage({code: 'webResponseHanldeError', data: error})
                             reject(error);
                         });
                     } else {
                         successCallback && successCallback(details)
-                        sendMessage({code: 'webResponseHanldeCompleted', data: details})
+                        background.sendMessage({code: 'webResponseHanldeCompleted', data: details})
                         resolve(resData);
                     }
                 });

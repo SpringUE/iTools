@@ -56,8 +56,7 @@
             <el-table-column
               prop="name"
               label="名称"
-              width="auto"
-              :show-overflow-tooltip="true">
+              width="auto">
               <template slot-scope="scope">
                 <span :title="scope.row.url">{{ scope.row.name }}</span>
               </template>
@@ -92,8 +91,7 @@
             <el-table-column
               prop="initiator"
               label="发起程序"
-              width="auto"
-              :show-overflow-tooltip="true">
+              width="auto">
               <template slot-scope="scope">
                 <el-popover trigger="hover" :open-delay="200" placement="right" width="470">
                   <InitiatorStack :data="scope.row.stackCallFrames" :filter="query.initiatorRegExp" />
@@ -137,7 +135,7 @@
 
 <script>
 import { httpMethods, httpResourceTypes } from '../constants/network'
-import devtoolsUtil from './utils/devtools'
+import devtools from './utils/devtools'
 import InitiatorStack from './components/InitiatorStacks.vue'
 import RequesterInterceptor from './components/RequesterInterceptor.vue'
 
@@ -180,11 +178,11 @@ export default {
         return isValidName && isValidMethod && isValidResourceType
       })
       return rows.map(x => {
-        const filterInitiators = devtoolsUtil.filterInitiator(x.stackCallFrames, initiatorRegExp);
+        const filterInitiators = devtools.filterInitiator(x.stackCallFrames, initiatorRegExp);
         const top = filterInitiators[0] || {}
         return {
           ...x,
-          initiator: devtoolsUtil.getFileNameFromUrl(top?.url),
+          initiator: devtools.getFileNameFromUrl(top?.url),
           initiatorData: top,
         }
       })
@@ -206,15 +204,15 @@ export default {
       console.log(tab, event);
     },
     onSubmit() {
-      devtoolsUtil.getNetworkHAR.then(res => {
+      devtools.getNetworkHAR.then(res => {
         this.harinfos = JSON.stringify(res, null, 2)
       })
     },
 
     handleReqRowData(data) {
       const { request: { url, method }, _initiator, _resourceType: resourceType, response: { status, _transferSize: transferSize }, time, timings } = data
-      const name = devtoolsUtil.getFileNameFromUrl(url)
-      const { name: initiator, data: initiatorData, stackCallFrames } = devtoolsUtil.getInitiator(_initiator, this.query.initiatorRegExp)
+      const name = devtools.getFileNameFromUrl(url)
+      const { name: initiator, data: initiatorData, stackCallFrames } = devtools.getInitiator(_initiator, this.query.initiatorRegExp)
       
       
       return {
@@ -234,33 +232,40 @@ export default {
 
     async init() {
       const successCallback = data => {
-        devtoolsUtil.log(data);
+        devtools.log(data);
 
         const row = this.handleReqRowData(data)
         this.tableData.push(row)
       } 
       const errorCallback = err => {
-        devtoolsUtil.log(err.stack || err.toString());
+        devtools.log(err.stack || err.toString());
       }
 
       try {
-        const hars = await devtoolsUtil.getNetworkHAR()
+        const hars = await devtools.getNetworkHAR()
         this.tableData = hars?.entries?.map(x => this.handleReqRowData(x))
       } catch (error) {
         this.tableData = []
       } finally {
-        devtoolsUtil.createNetworkListener(successCallback, errorCallback)
-        devtoolsUtil.createTabUpdatedListener()
-        devtoolsUtil.createwebNavigationListener(() => {
+        devtools.createNetworkListener(successCallback, errorCallback)
+        devtools.createTabUpdatedListener()
+        devtools.createwebNavigationListener(() => {
           if(!this.query.keepLogsAlive) this.clearHars()
         })
-        devtoolsUtil.onBackgroundMessage(message => {
+        devtools.onMessage('webResponseHanldeCompleted', (message, sender, sendResponse) => {
           if (typeof message === 'object' && message.code === 'webResponseHanldeCompleted') {
             this.updateRows(message.data)
           } else {
-            devtoolsUtil.log('background消息 --> ', message)
+            devtools.log('background消息 --> ', message)
           }
         })
+
+        devtools.onMessage('backgroundNotes', (message, sender, sendResponse) => {
+          devtools.log('background消息 --> ', message)
+        })
+        setInterval(() => {
+          devtools.sendMessage({code:'devtoolsNotes', data:"I'm devtools"})
+        }, 1000 * 30)
       }
     },
 
@@ -269,8 +274,8 @@ export default {
     },
 
     openResource(url, lineNumber) {
-        devtoolsUtil.openResource(url, lineNumber).then(res => {
-            devtoolsUtil.log('打开资源面板 --> ', res)
+        devtools.openResource(url, lineNumber).then(res => {
+            devtools.log('打开资源面板 --> ', res)
         })
     },
 

@@ -118,29 +118,47 @@ export function formatRequestJsFile(options = {}, successCallback, errorCallback
             responseHanlder, urls, successCallback, errorCallback
         }
     }
-    sendMessageToBackground(message)
+    sendMessage(message)
 }
 
+let _msgQueue = []
 
 /**
- * 向background发送消息
+ * 初始化事件消息系统
+ * @param {Array} _msgQueue 消息队列
+ */
+export function initMessager(msgQueue) {
+    _msgQueue = msgQueue
+    chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+        if(!message?.code) {
+            log('无指令消息：', message, sender, sendResponse)
+            return;
+        }
+        log('msgQueue', msgQueue)
+        const listerner = msgQueue.find(x => x.code === message?.code)
+        if(listerner && listerner.callback) {
+            listerner.callback(message, sender, sendResponse)
+        } else {
+            log('无匹配的指令消息：', message, sender, sendResponse)
+        }
+    });
+}
+
+/**
+ * 发送消息
  * @param {Object} message 消息内容
  */
-export function sendMessageToBackground(message) {
-    chrome.runtime.sendMessage({ message });
+export function sendMessage(message) {
+    chrome.runtime.sendMessage(message);
 }
 
 /**
- * 注册接收background消息事件
- * @param {Function} successCallback 成功回调函数
- * @param {Function} errorCallback 出错回调函数
+ * 注册接收消息事件
+ * @param {String} code 事件消息代码
+ * @param {Function} callback 回调函数
  */
-export function onBackgroundMessage(callback) {
-    // 接收background发送的消息
-    chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-        log("Message from background:", message);
-        callback && callback(message, sender, sendResponse)
-    });
+export function onMessage(code, callback) {
+    _msgQueue.push({code, callback})
 }
 
 /**
@@ -192,11 +210,15 @@ export function getInitiator(data = {}, initiatorRegExp) {
         }
     }
 
-    let stackCallFrames = stack?.callFrames
-
-    if (!stackCallFrames || !stackCallFrames.length) {
-        stackCallFrames = stack?.parent?.callFrames
+    let stackCallFrames = []
+    let loopCallFrames = node => {
+        if (node.callFrames) {
+            stackCallFrames.push(...node.callFrames)
+        }
+        node.parent && loopCallFrames(node.parent)
     }
+
+    loopCallFrames(stack)
 
     let [top] = stackCallFrames
     if (initiatorRegExp) {
@@ -220,7 +242,7 @@ export function getInitiator(data = {}, initiatorRegExp) {
 export function formatTimeConsuming(time, timings = {}) {
     const { blocked, connect, dns, receive, send, ssl, wait, _blocked_queueing } = timings
     if (time >= 1000) {
-        return time.toFixed(2) + ' 秒'
+        return (time / 1000).toFixed(1) + ' 秒'
     }
 
     return time.toFixed(0) + ' 毫秒'
@@ -234,12 +256,12 @@ export function formatTimeConsuming(time, timings = {}) {
 export function formatResponseSize(size) {
     // MB
     if (size >= 1000 * 1000) {
-        return (size / 1000 * 1000).toFixed(2) + ' MB'
+        return (size / (1000 * 1000)).toFixed(1) + ' MB'
     }
 
     // KB
     if (size >= 1000) {
-        return (size / 1000).toFixed(2) + ' KB'
+        return (size / 1000).toFixed(1) + ' KB'
     }
 
     // B
@@ -311,8 +333,9 @@ export default {
     createTabUpdatedListener,
     createwebNavigationListener,
     formatRequestJsFile,
-    sendMessageToBackground,
-    onBackgroundMessage,
+    initMessager,
+    sendMessage,
+    onMessage,
     getFileNameFromUrl,
     filterInitiator,
     getInitiator,

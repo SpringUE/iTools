@@ -4,6 +4,9 @@
 
 另外，本文图片较多，请耐心等待加载完毕。
 
+## 日志记录
+浏览器直接打开地址: extension://fnmldfpmalgaipdgdijjkmieplhndbnb/background.html
+
 ## 仓库说明
 
 * `full-chrome-plugin-demo`：大部分demo代码都在这个仓库；
