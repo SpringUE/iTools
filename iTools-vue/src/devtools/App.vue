@@ -253,19 +253,13 @@ export default {
           if(!this.query.keepLogsAlive) this.clearHars()
         })
         devtools.onMessage('webResponseHanldeCompleted', (message, sender, sendResponse) => {
-          if (typeof message === 'object' && message.code === 'webResponseHanldeCompleted') {
-            this.updateRows(message.data)
-          } else {
-            devtools.log('background消息 --> ', message)
-          }
+          devtools.log('background消息 --> webResponseHanldeCompleted --> ', message)
+          this.updateRows(message.data)
         })
 
         devtools.onMessage('backgroundNotes', (message, sender, sendResponse) => {
           devtools.log('background消息 --> ', message)
         })
-        setInterval(() => {
-          devtools.sendMessage({code:'devtoolsNotes', data:"I'm devtools"})
-        }, 1000 * 30)
       }
     },
 

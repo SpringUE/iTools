@@ -2,7 +2,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin')
 const path = require('path')
 const pagesObj = {
   background: { entry: 'src/background/background.js', filename: 'background.html' },
-  devcreate: { entry: 'src/devtools/index.js', filename: 'devcreate.html' }
+  devtools: { entry: 'src/devtools/main.js', filename: 'devtools.html' }
 }
 const chromeName = ['popup', 'devtools']
 const plugins = [

@@ -34,7 +34,12 @@ export function initMessager() {
  * @param {Function} errorCallback 出错回调函数
  */
 export function onMessage(code, callback) {
-    msgQueue.push({code, callback})
+    const listerner = msgQueue.find(x => x.code === code)
+    if(!listerner) {
+        msgQueue.push({code, callback})
+    } else {
+        logError('事件code冲突：'+ code)
+    }
 }
 /**
  * 发送消息

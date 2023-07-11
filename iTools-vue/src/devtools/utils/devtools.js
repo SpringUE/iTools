@@ -1,3 +1,5 @@
+import { logError } from "../../background/background.utils";
+
 // Chrome DevTools Extension中不能使用console.log
 export function log(...args) {
     return chrome.devtools.inspectedWindow.eval(`
@@ -121,28 +123,38 @@ export function formatRequestJsFile(options = {}, successCallback, errorCallback
     sendMessage(message)
 }
 
-let _msgQueue = []
+export const devtoolsMsgQueue = []
 
 /**
- * 初始化事件消息系统
- * @param {Array} _msgQueue 消息队列
+ * 事件消息处理器
  */
-export function initMessager(msgQueue) {
-    _msgQueue = msgQueue
-    chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-        if(!message?.code) {
-            log('无指令消息：', message, sender, sendResponse)
-            return;
-        }
-        log('msgQueue', msgQueue)
-        const listerner = msgQueue.find(x => x.code === message?.code)
-        if(listerner && listerner.callback) {
-            listerner.callback(message, sender, sendResponse)
-        } else {
-            log('无匹配的指令消息：', message, sender, sendResponse)
-        }
-    });
+function messageHandler(message, sender, sendResponse) {
+    if(!message?.code) {
+        log('无指令消息：', message, sender, sendResponse)
+        return;
+    }
+    const listerner = devtoolsMsgQueue.find(x => x.code === message?.code)
+    if(listerner && listerner.callback) {
+        listerner.callback(message, sender, sendResponse)
+    } else {
+        // log('无匹配的指令消息：', message, sender, sendResponse)
+    }
 }
+  
+/**
+ * 初始化事件消息系统
+ */
+export function initMessager() {
+    chrome.runtime.onMessage.addListener(messageHandler);
+}
+
+/**
+ * 销毁事件消息系统
+ */
+export function removeMessager() {
+    chrome.runtime.onMessage.removeListener(messageHandler);
+}
+
 
 /**
  * 发送消息
@@ -158,7 +170,12 @@ export function sendMessage(message) {
  * @param {Function} callback 回调函数
  */
 export function onMessage(code, callback) {
-    _msgQueue.push({code, callback})
+    const listerner = devtoolsMsgQueue.find(x => x.code === code)
+    if(!listerner) {
+        devtoolsMsgQueue.push({code, callback})
+    } else {
+        logError('事件code冲突：'+ code)
+    }
 }
 
 /**
@@ -334,6 +351,7 @@ export default {
     createwebNavigationListener,
     formatRequestJsFile,
     initMessager,
+    removeMessager,
     sendMessage,
     onMessage,
     getFileNameFromUrl,

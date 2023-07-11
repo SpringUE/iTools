@@ -88,7 +88,7 @@ export default {
     },
 
     created() {
-        this.formatRequestJsFile()
+        // this.formatRequestJsFile()
     },
 
     methods: {
